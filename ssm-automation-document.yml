@@ -1,0 +1,39 @@
+description: This automation will start a ec2 instance.
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  AutomationAssumeRole:
+    default: ''
+    description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+    type: String
+  SID:
+    description: (Required) Provide the SID you wish to start.
+    type: String
+mainSteps:
+  - name: START_QUERY_AWS_ServerInstanceId
+    action: aws:executeAwsApi
+    nextStep: START_AWS_EC2
+    isEnd: false
+    onFailure: Abort
+    inputs:
+      Service: ec2
+      Api: DescribeInstances
+      Filters:
+        - Name: tag:APPID
+          Values:
+            - '*{{SID}}*'
+        - Name: tag:OSType
+          Values:
+            - Linux
+    outputs:
+      - Name: ServerInstanceId
+        Selector: $.Reservations..Instances..InstanceId
+        Type: StringList
+  - name: START_AWS_EC2
+    action: aws:changeInstanceState
+    isEnd: true
+    onFailure: Abort
+    inputs:
+      DesiredState: running
+      InstanceIds:
+        - '{{ START_QUERY_AWS_ServerInstanceId.ServerInstanceId }}'
